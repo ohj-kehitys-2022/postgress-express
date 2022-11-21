@@ -3,6 +3,10 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var cors = require('cors');
+const basicAuth = require('express-basic-auth');
+const db = require('./database');
+const bcrypt = require('bcryptjs');
+
 
 var indexRouter = require('./routes/index');
 var userRouter = require('./routes/user');
@@ -18,7 +22,39 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
-app.use('/user', userRouter);
 app.use('/book', bookRouter);
+app.use(basicAuth( { authorizer: myAuthorizer, authorizeAsync:true, } ))
+app.use('/user', userRouter);
+
+function myAuthorizer(username, password,cb){
+    db.query('SELECT password FROM user_table WHERE username = $1',[username], 
+      function(dbError, dbResults, fields) {
+        if(dbError){
+              response.json(dbError);
+        }
+        else {
+          if (dbResults.rows.length > 0) {
+            bcrypt.compare(password,dbResults.rows[0].password, 
+              function(err,res) {
+                if(res) {
+                  console.log("succes");
+                  return cb(null, true);
+                }
+                else {
+                  console.log("wrong password");
+                  return cb(null, false);
+                }			
+                response.end();
+              }
+            );
+          }
+          else{
+            console.log("user does not exists");
+            return cb(null, false);
+          }
+        }
+      }
+    );
+  }
 
 module.exports = app;
